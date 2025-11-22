@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Gambling Task — Calibration + Validation + Practice + Main (Hypothetical Decisions)</title>
+<style>
+  :root{ --bg:#808080; --fix: rgb(166,85,34); --txt:#fff; }
+  html,body{ height:100%; margin:0; background:var(--bg); font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  .center{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; color:var(--txt);}
+  .wrap{ max-width:980px; padding:28px; line-height:1.65; outline:none; }
+  h1,h2{ margin:0 0 12px 0;} h2{ font-size:24px;}
+  p,li{ font-size:16px;}
+  .btn{ display:inline-block; padding:.6rem 1rem; border-radius:10px; background:#1e88e5; color:#fff; text-decoration:none; cursor:pointer; margin:10px 10px 0 0; border:none; }
+  .btn:disabled{ opacity:.6; cursor:not-allowed; }
+  .muted{ opacity:.85; font-size:14px;}
+  .fix{ font-size:28px; color:var(--fix); position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); font-family:monospace;}
+  .arena{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:var(--bg);}
+  .stage{ position:relative; width:100vw; height:70vh;}
+  .box{ position:absolute; top:50%; transform:translate(-50%,-50%); width:240px; height:240px; border:6px solid currentColor; border-radius:16px;
+        display:flex; align-items:center; justify-content:center; font-weight:800; font-size:72px; line-height:1; user-select:none;
+        box-shadow:0 0 0 1px rgba(0,0,0,.08); text-shadow:0 0 0.5px rgba(0,0,0,.15);}
+  .legend{ position:fixed; left:50%; transform:translateX(-50%); bottom:32px; color:#fff; text-align:center; font-size:18px;}
+  .pt{ position:fixed; width:14px; height:14px; border-radius:50%; background:#e53935; transform:translate(-50%,-50%); box-shadow:0 0 0 4px rgba(229,57,53,.25); z-index:9998;}
+  #gazeDot{ position:fixed; width:10px; height:10px; border-radius:50%; background:#ff1744; opacity:.9; pointer-events:none; transform:translate(-50%,-50%); display:none; z-index:10000;}
+  .grid{ display:grid; grid-template-columns:repeat(3, 120px); grid-gap:10px; justify-content:center; margin:18px 0;}
+  .cell{ width:120px; height:80px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:20px;
+         background:rgba(255,255,255,.15); border:2px solid rgba(255,255,255,.25);}
+  .ok{ background:rgba(76,175,80,.25); border-color:rgba(76,175,80,.5);}
+  .bad{ background:rgba(244,67,54,.25); border-color:rgba(244,67,54,.6);}
+  .status{ position:fixed; right:12px; bottom:12px; background:rgba(0,0,0,.35); color:#fff; border-radius:10px; padding:8px 12px; font-size:13px; z-index:10001;}
+  .consent-box{ background:rgba(0,0,0,.25); padding:14px 16px; border-radius:10px; margin:12px 0;}
+  .note{ padding:10px 12px; background:rgba(255,255,255,.15); border-radius:8px;}
+  #err{ position:fixed; left:12px; bottom:12px; max-width:50vw; background:rgba(0,0,0,.6); color:#fff; padding:10px 12px; border-radius:10px; font:12px/1.4 monospace; white-space:pre-wrap; z-index:10002; display:none;}
+
+  /* ===== Camera Progress Modal (first-time only) ===== */
+  #modalBackdrop{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:10020; }
+  .modalCard{ width:min(560px,90vw); background:#222; color:#fff; border-radius:14px; padding:20px 22px; box-shadow:0 10px 30px rgba(0,0,0,.5);}
+  .modalCard h3{ margin:0 0 8px 0; font-size:20px;}
+  .modalMsg{ font-size:14px; opacity:.9; margin-bottom:14px;}
+  .progress{ width:100%; height:12px; background:rgba(255,255,255,.15); border-radius:999px; overflow:hidden; }
+  .bar{ height:100%; width:0%; background:#1e88e5; transition:width .25s ease; }
+  .modalFoot{ margin-top:10px; font-size:12px; opacity:.8;}
+
+  /* ===== Fullscreen warning overlay ===== */
+  #fsWarn{ position:fixed; inset:0; background:rgba(0,0,0,.65); display:none; align-items:center; justify-content:center; z-index:10030; }
+  .fsCard{ width:min(520px,90vw); background:#202124; color:#fff; border-radius:14px; padding:20px 22px; box-shadow:0 10px 30px rgba(0,0,0,.5);}
+  .fsCard h3{ margin:0 0 8px 0; font-size:20px;}
+  .fsCard p{ font-size:14px; opacity:.95; }
+</style>
+</head>
+<body>
+<div id="gazeDot"></div>
+<div id="status" class="status" style="display:none;">Preparing camera…</div>
+<div id="err"></div>
+<div id="app" class="center"><div class="wrap">Initializing…</div></div>
+
+<!-- ===== Camera Progress Modal (first-time only) ===== -->
+<div id="modalBackdrop">
+  <div class="modalCard">
+    <h3 id="modalTitle">Camera setup</h3>
+    <div id="modalMsg" class="modalMsg">Preparing components…</div>
+    <div class="progress"><div id="modalBar" class="bar"></div></div>
+    <div id="modalFoot" class="modalFoot">If this takes unusually long, please ensure camera permission is granted and your face is well lit.</div>
+  </div>
+</div>
+
+<!-- ===== Fullscreen warning ===== -->
+<div id="fsWarn">
+  <div class="fsCard">
+    <h3>Fullscreen was exited</h3>
+    <p>For data quality and standardized viewing geometry, please return to <b>system fullscreen</b> to continue.</p>
+    <button class="btn" id="fsBackBtn">Re-enter fullscreen</button>
+  </div>
+</div>
+
+<script>
+/* ===================== Error capture ===================== */
+(function(){
+  const err = document.getElementById('err');
+  function showErr(msg, src, line, col, e){
+    err.style.display='block';
+    err.textContent = '[Script Error] ' + (msg||'') + (src?('\\n@ '+src+':'+line+':'+col):'') + (e && e.stack?('\\n'+e.stack):'');
+  }
+  window.addEventListener('error', e => { showErr(e.message, e.filename, e.lineno, e.colno, e.error); });
+  window.addEventListener('unhandledrejection', e => {
+    err.style.display='block';
+    err.textContent = '[Unhandled Promise] ' + (e.reason && (e.reason.stack || e.reason.message || e.reason));
+  });
+})();
+
+/* ===================== Helpers & constants ===================== */
+const app = document.getElementById('app');
+const gazeDot = document.getElementById('gazeDot');
+const statusBox = document.getElementById('status');
+
+/* Modal helpers (first-time only) */
+const modal = {
+  el: document.getElementById('modalBackdrop'),
+  title: document.getElementById('modalTitle'),
+  msg: document.getElementById('modalMsg'),
+  bar: document.getElementById('modalBar'),
+  foot: document.getElementById('modalFoot'),
+  timer: null,
+  open(title='Camera setup', msg='Preparing…', startPct=5){
+    this.title.textContent = title;
+    this.msg.textContent = msg;
+    this.bar.style.width = Math.max(0, Math.min(100, startPct)) + '%';
+    this.el.style.display = 'flex';
+  },
+  set(pct, msg){
+    if (typeof msg === 'string') this.msg.textContent = msg;
+    this.bar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  },
+  ramp(to=90, step=3, iv=300){
+    if (this.timer) clearInterval(this.timer);
+    let cur = parseFloat(this.bar.style.width) || 0;
+    this.timer = setInterval(()=>{
+      cur = Math.min(to, cur + step);
+      this.bar.style.width = cur + '%';
+      if (cur >= to) { clearInterval(this.timer); this.timer = null; }
+    }, iv);
+  },
+  close(){
+    if (this.timer) { clearInterval(this.timer); this.timer=null; }
+    this.el.style.display = 'none';
+  }
+};
+
+const show = html => {
+  app.innerHTML = `<div class="wrap" tabindex="-1">${html}</div>`;
+  const wrap = app.querySelector('.wrap');
+  setTimeout(() => { try { wrap && wrap.focus({ preventScroll: true }); } catch(e){} }, 0);
+};
+const showCenter = html => {
+  app.innerHTML = html;
+  if (!app.hasAttribute('tabindex')) app.setAttribute('tabindex','-1');
+  setTimeout(() => { try { app.focus({ preventScroll: true }); } catch(e){} }, 0);
+};
+
+const sleep = ms => new Promise(r=>setTimeout(r, ms));
+const shuffle = a => { for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a; };
+const randBetween = (a,b)=> a + Math.floor(Math.random()*(b-a+1));
+const setStageBlank = on => { app.style.display = on ? 'none' : 'flex'; };
+
+const PRACTICE_N = 5;
+const N_BLOCKS = 4;
+const TRIALS_PER_BLOCK = 1;
+const START_ENDOWMENT = 5;
+let PX_PER_DEG = 40;
+const SEP_DEG = 15;
+
+const ROI = 200, REPS = 2, MIN_OK = 60;
+const VAL_POINT_MS = 2500;
+const MID_VAL_POINT_MS = 2500;
+const SHOW_GAZE_DOT_TASK = false;
+
+let LOW_QUALITY_CALIBRATION = false;
+let LOW_QUALITY_EYETRACKING = false;
+
+const offsetPx = () => Math.round(PX_PER_DEG * SEP_DEG / 2);
+
+const BLUE  = 'rgb(53,126,179)';
+const GREEN = 'rgb(61,137,69)';
+
+const POINTS_9 = [
+  [10,15],[50,15],[90,15],
+  [10,50],[50,50],[90,50],
+  [10,85],[50,85],[90,85]
+];
+const POINTS_5   = [
+  [50,50],
+  [10,15],[90,15],
+  [10,85],[90,85]
+];
+const VALIDATION_SERP = [
+  [10,15],[50,15],[90,15],
+  [90,50],[50,50],[10,50],
+  [10,85],[50,85],[90,85]
+];
+
+/* Prolific mappings & query */
+const urlQS = new URLSearchParams(location.search);
+const PROLIFIC_PID = urlQS.get('PROLIFIC_PID') || null;
+const PROLIFIC_RETURN_URL = urlQS.get('RETURN_URL') || null;
+function getQS(name){ return urlQS.get(name) || ''; }
+function hash32(str){ let h=2166136261>>>0; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=(h*16777619)>>>0;} return h; }
+const PARTICIPANT_GAIN_BLUE = PROLIFIC_PID ? ((hash32(PROLIFIC_PID) & 1) === 0) : (Math.random()<0.5);
+const PARTICIPANT_ACCEPTS_WITH_D = PROLIFIC_PID ? ((hash32(PROLIFIC_PID+'key') & 1) === 0) : (Math.random()<0.5);
+const KEYMAP = PARTICIPANT_ACCEPTS_WITH_D
+  ? {accept:'d', reject:'j', legend:'D = Accept   /   J = Reject'}
+  : {accept:'j', reject:'d', legend:'J = Accept   /   D = Reject'};
+const DECISION_KEYS = new Set(['d','j','D','J']);
+function keyLegendHTML(showIt){ return showIt ? `<div class="legend"><b>${KEYMAP.legend}</b></div>` : ''; }
+
+/* ===== No-consent completion code & redirect ===== */
+const PROLIFIC_NOCONSENT_CODE = getQS('NOCONSENT_CODE') || '';
+function redirectToProlificWithCode(code){
+  if (!code){
+    if (PROLIFIC_RETURN_URL) { location.href = PROLIFIC_RETURN_URL; }
+    return;
+  }
+  const url = 'https://app.prolific.com/submissions/complete?cc=' + encodeURIComponent(code);
+  location.replace(url);
+}
+
+/* Retrieve previous pixel-per-degree calibration */
+try{
+  const saved = parseFloat(localStorage.getItem('px_per_deg'));
+  if (!isNaN(saved) && saved > 0) { PX_PER_DEG = saved; }
+}catch(e){}
+
+/* ===================== Fullscreen & zoom check ===================== */
+function checkZoomAndSize(){
+  const scale = (window.visualViewport && window.visualViewport.scale) ? window.visualViewport.scale : 1;
+  const tooSmall = (window.innerWidth < 1024 || window.innerHeight < 650);
+  let warn = '';
+  if (Math.abs(scale - 1) > 0.03){
+    const key = navigator.platform && navigator.platform.includes('Mac') ? 'Cmd+0' : 'Ctrl+0';
+    warn += `Your browser zoom is not 100%. Press ${key} to reset.\n`;
+  }
+  if (tooSmall){
+    warn += 'Window is too small (≥ 1024×650 recommended). Please maximize or use a larger display.\n';
+  }
+  return warn;
+}
+function isFullscreen(){
+  return !!(document.fullscreenElement ||
+            document.webkitFullscreenElement ||
+            document.mozFullScreenElement ||
+            document.msFullscreenElement);
+}
+async function enterFullscreen(){
+  try{
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (req) {
+      const ret = req.call(el);
+      if (ret && typeof ret.then === 'function') { await ret; }
+    }
+    if (screen.orientation && screen.orientation.lock) {
+      try { await screen.orientation.lock('landscape'); } catch(e) {}
+    }
+  }catch(e){ console.warn('enterFullscreen error:', e); }
+}
+
+/* ===== Fullscreen warning controller ===== */
+const fsWarnEl = document.getElementById('fsWarn');
+function showFsWarn(){ fsWarnEl.style.display='flex'; }
+function hideFsWarn(){ fsWarnEl.style.display='none'; }
+async function ensureFsIfExited(){
+  if (!isFullscreen()){ showFsWarn(); }
+}
+document.getElementById('fsBackBtn').onclick = async ()=>{
+  hideFsWarn();
+  try{ await enterFullscreen(); }catch(e){}
+};
+['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'].forEach(ev=>{
+  document.addEventListener(ev, ()=>{ if(!isFullscreen()) showFsWarn(); else hideFsWarn(); });
+});
+
+/* ===================== Trial set generation ===================== */
+function genUnique(n=100){
+  const s=new Set(), arr=[];
+  while(arr.length<n){
+    const g=1+Math.floor(Math.random()*10);
+    const l=1+Math.floor(Math.random()*10);
+    const k=`${g}_${l}`;
+    if(!s.has(k)){ s.add(k); arr.push({gain:g, loss:l}); }
+  }
+  return arr;
+}
+// 4 blocks, each 50 trials (unique gain/loss combos within block)
+const blocks = Array.from({length: N_BLOCKS}, () => shuffle(genUnique(TRIALS_PER_BLOCK)));
+
+/* ===================== WebGazer dynamic loading ===================== */
+let WG_READY = false;
+async function loadScript(url){
+  return new Promise((res, rej)=>{
+    const s = document.createElement('script');
+    s.src = url; s.async = true; s.onload = ()=>res(url); s.onerror = ()=>rej(new Error('Failed to load: '+url));
+    document.head.appendChild(s);
+  });
+}
+async function ensureWebgazer(){
+  const sources = [
+    'https://webgazer.cs.brown.edu/webgazer.js',
+    'https://unpkg.com/webgazer@^2/dist/webgazer.js'
+  ];
+  let lastErr=null;
+  for(const u of sources){
+    try{ await loadScript(u); if(window.webgazer){ WG_READY=true; return u; } }
+    catch(e){ lastErr=e; }
+  }
+  throw lastErr || new Error('Unable to load webgazer.js');
+}
+
+/* ===================== WebGazer wrapping & camera warmup ===================== */
+let previewTimer = null, previewKeepAlive=null;
+let CAMERA_WARMED = false;
+
+function ensurePreviewVisible(){
+  const vg = document.getElementById('webgazerVideoContainer');
+  if (vg){
+    vg.style.display='block'; vg.style.visibility='visible';
+    vg.style.position='fixed'; vg.style.left='12px'; vg.style.top='12px';
+    vg.style.zIndex=10000; vg.style.pointerEvents='none';
+    vg.style.width = '160px'; vg.style.height = 'auto';
+    vg.style.background = 'transparent';
+  }
+}
+function movePreviewToCorner(){ ensurePreviewVisible(); }
+async function initWebgazer(){
+  try{ webgazer.setRegression('ridge'); webgazer.setTracker('TFFacemesh'); }catch(e){}
+  if (webgazer.params){
+    webgazer.params.showVideoPreview = true;
+    webgazer.params.showFaceFeedbackBox = true;
+  }
+  webgazer.showPredictionPoints(false);
+  await webgazer.begin();
+  movePreviewToCorner();
+}
+function startGazePreview(){
+  if (!WG_READY) return;
+  webgazer.showVideoPreview(true);
+  movePreviewToCorner();
+  statusBox.style.display='block';
+  gazeDot.style.display='block';
+  if (previewTimer) clearInterval(previewTimer);
+  previewTimer = setInterval(async ()=>{
+    const p=await webgazer.getCurrentPrediction();
+    if (p){ gazeDot.style.left=p.x+'px'; gazeDot.style.top=p.y+'px'; statusBox.textContent='Tracking OK ✓'; }
+    else { statusBox.textContent='Preparing camera/model…'; }
+  },33);
+  if (previewKeepAlive) clearInterval(previewKeepAlive);
+  previewKeepAlive = setInterval(()=>ensurePreviewVisible(), 500);
+}
+function stopGazePreview(){
+  if (previewTimer) { clearInterval(previewTimer); previewTimer=null; }
+  if (previewKeepAlive) { clearInterval(previewKeepAlive); previewKeepAlive=null; }
+  gazeDot.style.display='none'; statusBox.style.display='none';
+  webgazer.showVideoPreview(false);
+}
+async function waitForPrediction(waitMs=10000){
+  const t0=performance.now(); while(performance.now()-t0<waitMs){ const p=await webgazer.getCurrentPrediction(); if(p) return true; await sleep(100); } return false;
+}
+
+/* First-time progress bar; later calls show no bar */
+async function warmupCameraAndPreview({title='Camera setup', msg='Requesting camera access…', waitMs=10000}={}){
+  if (!CAMERA_WARMED){
+    modal.open(title, msg, 10);
+    modal.ramp(90, 3, 250);
+    startGazePreview(); ensurePreviewVisible();
+    const ok = await waitForPrediction(waitMs);
+    if (ok){ modal.set(100, 'Ready'); await sleep(300); }
+    else { modal.set(90, 'Still preparing… please check the preview and lighting.'); await sleep(1200); }
+    modal.close();
+    stopGazePreview();
+    CAMERA_WARMED = true;
+    return ok;
+  } else {
+    startGazePreview(); ensurePreviewVisible();
+    await waitForPrediction(1500);
+    stopGazePreview();
+    return true;
+  }
+}
+
+/* ===================== Wait for Space ===================== */
+function awaitSpace(){
+  const target = app.querySelector('.wrap') || app;
+  if (target && !target.hasAttribute('tabindex')) target.setAttribute('tabindex','-1');
+  setTimeout(() => { try { (target || document.body).focus({ preventScroll:true }); } catch(e){} }, 0);
+
+  return new Promise(resolve=>{
+    function onKey(e){
+      const isSpace = (e.code === 'Space') || (e.key === ' ') || (e.keyCode === 32);
+      const tag = (e.target && e.target.tagName) ? e.target.tagName : '';
+      const isTypingTarget = ['INPUT','TEXTAREA','SELECT'].includes(tag);
+      if (isSpace && !isTypingTarget){
+        e.preventDefault(); cleanup(); resolve();
+      }
+    }
+    function cleanup(){
+      window.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('keydown', onKey, true);
+    }
+    window.addEventListener('keydown', onKey, true);
+    document.addEventListener('keydown', onKey, true);
+  });
+}
+
+/* ===================== Pages before practice ===================== */
+async function showWelcome(){
+  return await new Promise((resolve)=>{
+    show(`
+      <h2>Welcome</h2>
+      <p class="muted">Click the button below to enter <b>system fullscreen</b> and continue.</p>
+      <button class="btn" id="btnNext">Enter fullscreen and continue</button>
+    `);
+    document.getElementById('btnNext').onclick = async ()=>{
+      const warn = checkZoomAndSize(); if (warn) alert(warn);
+      try { await enterFullscreen(); } catch(e) {}
+      resolve();
+    };
+  });
+}
+
+let consent_record = null;
+async function showConsent(){
+  return await new Promise((resolve)=>{
+    show(`
+      <h2>Informed Consent (Online Decision Task & Gaze Estimation)</h2>
+      <p>You will complete a keyboard-based decision task while a <b>local</b> webcam-based estimator infers your gaze. We <b>do not store</b> audio/video. Only de-identified data (gaze points, key presses, RTs) are saved.</p>
+      <p><b>Participation requirements:</b> no glasses (contact lenses are fine), clear vision, and approximately <b>50 cm</b> viewing distance from the screen. Otherwise the gaze calibration is likely to fail.</p>
+      <div class="consent-box">
+        <label><input type="checkbox" id="c1"> I am 18+ years old, have read and understood the above, and voluntarily agree to participate.</label><br/>
+        <label><input type="checkbox" id="c2"> I understand and agree that webcam images are used locally for gaze estimation; the researchers do not save audio/video.</label>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" id="agree" disabled>I agree, continue</button>
+        <button class="btn" id="decline">I do not agree — Exit</button>
+      </div>
+    `);
+    const c1 = document.getElementById('c1');
+    const c2 = document.getElementById('c2');
+    const agree = document.getElementById('agree');
+    function update(){ agree.disabled = !(c1.checked && c2.checked); }
+    c1.onchange = c2.onchange = update; update();
+
+    agree.onclick = ()=>{
+      consent_record = { accepted:true, t:new Date().toISOString(), prolific_pid: PROLIFIC_PID };
+      resolve('agreed');
+    };
+    document.getElementById('decline').onclick = ()=>{
+      consent_record = { accepted:false, t:new Date().toISOString(), prolific_pid: PROLIFIC_PID };
+      show(`
+        <h2>Consent not provided</h2>
+        <p class="muted">You chose not to provide informed consent. You will be returned to Prolific with a <b>no-consent / screen-out</b> completion code so that no payment is issued.</p>
+        <button class="btn" id="goBackProlific">Return to Prolific</button>
+      `);
+      document.getElementById('goBackProlific').onclick = ()=>redirectToProlificWithCode(PROLIFIC_NOCONSENT_CODE);
+      if (PROLIFIC_NOCONSENT_CODE){
+        setTimeout(()=>redirectToProlificWithCode(PROLIFIC_NOCONSENT_CODE), 800);
+      }
+    };
+  });
+}
+
+async function runScreenScaleCalibration(){
+  show(`
+    <h2>Screen Calibration</h2>
+    <p>Use a standard bank/ID card (width <b>85.6 mm</b>) to match the gray rectangle.</p>
+    <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin:14px 0;">
+      <div>
+        <div id="cardBox" style="width:240px;height:135px;background:rgba(255,255,255,.12);border:2px dashed rgba(255,255,255,.4);border-radius:8px;"></div>
+        <div style="margin-top:8px;">
+          Width: <input id="cardRange" type="range" min="160" max="420" value="240" style="width:260px;vertical-align:middle;">
+          <span id="pxLabel">240 px</span>
+        </div>
+        <div class="muted">Calibrate using <b>width only</b> (85.6 mm).</div>
+      </div>
+      <div style="min-width:220px;">
+        <div class="muted" style="margin-top:6px;">
+          For this study we assume a viewing distance of <b>50 cm</b>.
+        </div>
+        <div id="previewSep" class="muted" style="margin-top:8px;"></div>
+      </div>
+    </div>
+    <button class="btn" id="saveScale">Save calibration and continue</button>
+  `);
+
+  const cardBox = document.getElementById('cardBox');
+  const range   = document.getElementById('cardRange');
+  const pxLabel = document.getElementById('pxLabel');
+  const prevSep = document.getElementById('previewSep');
+
+  function updateLabels(){
+    const px = +range.value;
+    pxLabel.textContent = `${px} px`;
+
+    const px_per_mm = px / 85.6;
+    const d_mm = 500;
+    const mm_per_deg = d_mm * Math.tan(Math.PI/180);
+    const px_per_deg = px_per_mm * mm_per_deg;
+
+    prevSep.textContent = `At current settings, a 15° center-to-center spacing ≈ ${Math.round(px_per_deg * 15)} px`;
+
+    cardBox.style.width  = px + 'px';
+    cardBox.style.height = Math.round(px * 53.98/85.6) + 'px';
+  }
+
+  range.oninput = updateLabels;
+  updateLabels();
+
+  await new Promise(r => document.getElementById('saveScale').onclick = r);
+
+  const px = +range.value;
+  const px_per_mm = px / 85.6;
+  const d_mm = 500;
+  const mm_per_deg = d_mm * Math.tan(Math.PI/180);
+  PX_PER_DEG = px_per_mm * mm_per_deg;
+
+  try { localStorage.setItem('px_per_deg', String(PX_PER_DEG)); } catch(e){}
+}
+
+/* ===== Overview & Quiz ===== */
+async function showOverview(){
+  return await new Promise((resolve)=>{
+    show(`
+      <h2>Overview & Instructions</h2>
+
+      <p><b>Before we start, please set up your environment:</b></p>
+      <ul>
+        <li>If you use a <b>laptop</b>, raise the screen so that the webcam is roughly at your eye level, and sit directly in front of the screen.</li>
+        <li>If you use an <b>external webcam</b>, place it on top and in the middle of the monitor you will be looking at (not on another monitor or on the desk).</li>
+        <li>Sit at about <b>50 cm</b> from the screen (not extremely close or far).</li>
+        <li>Keep your face <b>well lit</b> from the front or side. Avoid strong light behind you and avoid a completely dark room. If you wear glasses, try to reduce strong reflections on the lenses.</li>
+        <li>During calibration and the main task, please <b>sit still</b> and move mainly your <b>eyes</b> to look at the dots/boxes; avoid large head movements.</li>
+        <li>If the system asks you to repeat calibration several times, please first check in the webcam preview that your face is <b>centered</b>, <b>well lit</b>, and not too close or too far from the camera.</li>
+      </ul>
+
+      <ol>
+        <li><b>Eye-tracking setup:</b> Before the <b>first group</b> you will complete a <b>9-point calibration + 9-point validation</b>. Before each of the <b>next three groups</b>, you will complete a <b>5-point calibration + 5-point validation</b>.</li>
+        <li><b>Per-round flow:</b> central cross “+” for 2–4 s → two boxes appear (Gain +$ / Loss −$), each with 50% probability → choose Accept/Reject via keyboard (no time limit). <b>All choices are hypothetical</b> and used for research only.</li>
+        <li><b>Practice:</b> ${PRACTICE_N} rounds (not used for compensation; you may repeat if needed).</li>
+        <li><b>Main session:</b> <b>200 rounds</b> total, in <b>four groups of 50</b>. Before each group, an eye-tracking calibration & validation is performed (9-point before the 1st group, 5-point before the 2nd–4th groups). <b>After each calibration/validation</b>, a key reminder page appears once.</li>
+        <li><b>Compensation:</b> a <b>fixed $${START_ENDOWMENT}</b> participant fee. Your decisions do <b>not</b> affect payment.</li>
+      </ol>
+
+      <button class="btn" id="btnNext">I understand, continue</button>
+    `);
+    document.getElementById('btnNext').onclick=()=>resolve('next');
+  });
+}
+
+async function showComprehensionQuiz(){
+  return await new Promise((resolve)=>{
+    show(`
+      <h2>Comprehension Check</h2>
+      <p class="muted">All answers must be correct to proceed.</p>
+      <ol style="margin-top:10px;">
+        <li style="margin-bottom:10px;">
+          What are the probabilities of the gain (+) and loss (−) outcomes on each round?
+          <div>
+            <label><input type="radio" name="q1" value="A"> 50% / 50%</label><br>
+            <label><input type="radio" name="q1" value="B"> 100% / 0%</label><br>
+            <label><input type="radio" name="q1" value="C"> 75% / 25%</label>
+          </div>
+        </li>
+        <li style="margin-bottom:10px;">
+          During the session, may you move your head freely and blink frequently?
+          <div>
+            <label><input type="radio" name="q2" value="A"> Yes, move freely and blink often</label><br>
+            <label><input type="radio" name="q2" value="B"> No, keep your head stable and minimize blinking</label><br>
+            <label><input type="radio" name="q2" value="C"> Eyes must remain closed at all times</label>
+          </div>
+        </li>
+        <li style="margin-bottom:10px;">
+          How will your compensation be determined?
+          <div>
+            <label><input type="radio" name="q3" value="A"> A fixed $${START_ENDOWMENT} participant fee</label><br>
+            <label><input type="radio" name="q3" value="B"> One main round will be paid based on accept/reject</label><br>
+            <label><input type="radio" name="q3" value="C"> Sum outcomes from all rounds</label>
+          </div>
+        </li>
+        <li style="margin-bottom:10px;">
+          In the main session, when will the additional <b>5-point calibrations & validations</b> be performed?
+          <div>
+            <label><input type="radio" name="q4" value="A"> Only before the first group</label><br>
+            <label><input type="radio" name="q4" value="B"> Before the <b>second, third, and fourth</b> groups</label><br>
+            <label><input type="radio" name="q4" value="C"> Never</label>
+          </div>
+        </li>
+      </ol>
+      <div id="quizMsg" class="muted" style="margin-top:10px;"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn" id="submitQuiz">Submit</button>
+        <button class="btn" id="backOverview">Back to Overview</button>
+      </div>
+    `);
+
+    function get(name){ const el = document.querySelector(`input[name="${name}"]:checked`); return el?el.value:null; }
+
+    document.getElementById('submitQuiz').onclick = ()=>{
+      const wrong = [];
+      if(get('q1')!=='A') wrong.push('Q1');
+      if(get('q2')!=='B') wrong.push('Q2');
+      if(get('q3')!=='A') wrong.push('Q3');
+      if(get('q4')!=='B') wrong.push('Q4');
+      const msg = document.getElementById('quizMsg');
+      if (wrong.length){
+        msg.innerHTML = 'Incorrect items: <b>' + wrong.join(', ') + '</b>. Review the overview or adjust your answers and submit again.';
+      }else{
+        show('<h2>Comprehension check passed ✓</h2><button class="btn" id="goNext">Continue</button>');
+        document.getElementById('goNext').onclick=()=>resolve();
+      }
+    };
+
+    document.getElementById('backOverview').onclick = async ()=>{
+      await showOverview();
+      await showComprehensionQuiz();
+      resolve();
+    };
+  });
+}
+
+/* ===== Fullscreen fallback ===== */
+async function showFullscreenStep(){
+  show(`
+    <h2>Fullscreen</h2>
+    <p>If fullscreen did not start, click the button below to enter <b>system fullscreen</b> (Esc to exit).</p>
+    <button class="btn" id="goFS">Enter fullscreen and continue</button>
+  `);
+  await new Promise((resolve)=>{
+    document.getElementById('goFS').onclick = async ()=>{
+      const warn = checkZoomAndSize(); if (warn) alert(warn);
+      try { await enterFullscreen(); } catch(e) {}
+      resolve();
+    };
+  });
+}
+
+/* ===== Calibration instruction pages ===== */
+function showCalibIntro9(){
+  show(`
+    <h2>9-Point Calibration (each point: <b>click 2 times</b>)</h2>
+    <div class="note">
+      <p><b>Purpose.</b> Please calibrate the gaze estimator by clicking each fixation target twice while maintaining gaze on it.</p>
+      <ul style="margin-left:18px">
+        <li>Targets appear in a <b>random order</b> across nine locations (four corners, four edge midpoints, center).</li>
+        <li>For each target, <b>click twice</b> about <b>0.3–0.5 s</b> apart, keeping your <b>eyes</b> on the target (not the mouse cursor).</li>
+        <li>Maintain a stable head position; natural blinks are acceptable.</li>
+      </ul>
+    </div>
+    <button class="btn" id="calStart9">Start 9-point calibration</button>
+  `);
+}
+
+function showCalibIntro5First(){
+  show(`
+    <h2>5-Point Calibration (each point: <b>click 2 times</b>)</h2>
+    <div class="note">
+      <p>We will recalibrate to ensure tracking stability. Click <b>twice</b> on each red target (~0.3–0.5 s apart) while keeping your gaze on it. Validation will follow immediately.</p>
+    </div>
+    <button class="btn" id="calStart5">Start 5-point calibration</button>
+  `);
+}
+
+function showCalibIntro5Retry(){
+  show(`
+    <h2>5-Point Calibration (retry)</h2>
+    <div class="note">
+      <p>The previous 5-point validation did not pass. Please recalibrate (click each target twice). Validation will follow immediately.</p>
+    </div>
+    <button class="btn" id="calRetry5">Start 5-point calibration again</button>
+  `);
+}
+
+/* ===== 9-point validation instruction ===== */
+function showValidationIntro9(){
+  show(`
+    <h2>9-Point Validation</h2>
+    <div class="note">
+      <p><b>Task.</b> A single red fixation target will appear <b>one at a time</b> across nine locations. <b>Do not click.</b> Simply maintain fixation on each target until it disappears; the next target appears automatically.</p>
+      <p><b>Sequence (serpentine).</b> The targets appear row by row:
+      <br/><i>Top row:</i> left → center → right
+      <br/><i>Middle row:</i> right → center → left
+      <br/><i>Bottom row:</i> left → center → right
+      </p>
+      <ul style="margin-left:18px">
+        <li>Keep your <b>head stable</b>; move only your eyes.</li>
+        <li>Natural blinks are fine; avoid large body or head movements.</li>
+        <li>If you glance away briefly, re-fixate the current target as soon as possible.</li>
+      </ul>
+    </div>
+    <button class="btn" id="valStart9">Start 9-point validation</button>
+  `);
+}
+
+/* ===== 5-point validation instruction ===== */
+function showValidationIntro5(){
+  show(`
+    <h2>5-Point Validation</h2>
+    <div class="note">
+      <p><b>Task.</b> A single red fixation target will appear <b>one at a time</b> at five locations. <b>Do not click.</b> Maintain fixation on each target until it disappears; the next target appears automatically.</p>
+      <p><b>Sequence (fixed order).</b> The targets will appear in the following order:
+      <br/>1) <b>Center</b> → 2) <b>Top-left</b> → 3) <b>Top-right</b> → 4) <b>Bottom-left</b> → 5) <b>Bottom-right</b>.
+      </p>
+      <ul style="margin-left:18px">
+        <li>Keep your <b>head stable</b> and move only your eyes.</li>
+        <li>Natural blinks are acceptable; avoid large head or body movements.</li>
+      </ul>
+    </div>
+    <button class="btn" id="valStart5">Start 5-point validation</button>
+  `);
+}
+
+/* ===================== 9-point calibration & validation ===================== */
+async function calibrateNinePointsMouse(){
+  setStageBlank(true);
+  const seq = shuffle(POINTS_9.slice());
+  await new Promise(resolve=>{
+    let idx=0, count=0, dot=null;
+    function place(){
+      const [px,py] = seq[idx];
+      const x=innerWidth*px/100, y=innerHeight*py/100;
+      dot=document.createElement('div'); dot.className='pt'; dot.style.left=x+'px'; dot.style.top=y+'px';
+      function clickOnce(){
+        count++;
+        try{
+          if (webgazer.recordScreenPosition) webgazer.recordScreenPosition(x,y,'click');
+          else if (webgazer.addCalibrationPoint) webgazer.addCalibrationPoint(x,y);
+        }catch(e){}
+        dot.style.boxShadow=`0 0 0 ${4+count*2}px rgba(229,57,53,.25)`;
+        if(count>=REPS){ dot.removeEventListener('click', clickOnce); dot.remove(); count=0; idx++; if(idx<seq.length) place(); else resolve(); }
+      }
+      dot.addEventListener('click', clickOnce);
+      document.body.appendChild(dot);
+    } place();
+  });
+  setStageBlank(false);
+}
+
+async function runNineValidation(){
+  setStageBlank(true);
+  let acc=[];
+  for(const [px,py] of VALIDATION_SERP){
+    const x=innerWidth*px/100, y=innerHeight*py/100;
+    const dot=document.createElement('div'); dot.className='pt'; dot.style.left=x+'px'; dot.style.top=y+'px';
+    document.body.appendChild(dot);
+    let inR=0,total=0; const t0=performance.now();
+    while(performance.now()-t0 < VAL_POINT_MS){
+      const p=await webgazer.getCurrentPrediction();
+      if(p){ total++; const dx=p.x-x, dy=p.y-y; if(dx*dx+dy*dy <= ROI*ROI) inR++; }
+      await sleep(16);
+    }
+    acc.push(total? Math.round(100*inR/total) : 0);
+    dot.remove(); await sleep(120);
+  }
+  setStageBlank(false);
+  return acc;
+}
+
+const logs = [];
+let trialCounter = 0;
+
+async function showValidationOutcomeAndMaybeLoop9(acc, attempt = 1){
+  const mean = Math.round(acc.reduce((a,b)=>a+b,0)/acc.length);
+  const cells = acc.map(p=>`<div class="cell ${p>=MIN_OK?'ok':'bad'}">${p}%</div>`);
+  const failed = acc.some(p=>p<MIN_OK);
+
+  logs.push({
+    phase: 'validation9',
+    attempt,
+    hit_rates: acc,
+    mean_pct: mean,
+    min_ok_pct: MIN_OK,
+    roi_px: ROI,
+    t: new Date().toISOString()
+  });
+
+  if (failed && attempt >= 3){
+    show(`
+      <h2>Calibration not passed</h2>
+      <p class="muted">
+        You have not passed the 9-point validation after several attempts.
+        You may still continue to the task, but your eye-tracking data may be
+        unusable and could be discarded during analysis.
+      </p>
+      <button class="btn" id="btnForceContinue">Continue to the task</button>
+    `);
+    await new Promise(r => document.getElementById('btnForceContinue').onclick = r);
+    LOW_QUALITY_EYETRACKING = true;
+    return;
+  }
+
+  show(`
+    <h2>Validation Results</h2>
+    <p>Per-point hit rate (threshold: ${MIN_OK}%):</p>
+    <div class="grid">${cells.slice(0,3).join('')}${cells.slice(3,6).join('')}${cells.slice(6,9).join('')}</div>
+    <p>Mean hit rate across 9 points: <b>${mean}%</b></p>
+    <button class="btn" id="btnNext">${
+      failed ? 'Not passed: redo 9-point calibration' : 'Passed: continue'
+    }</button>
+  `);
+
+  await new Promise(r=>document.getElementById('btnNext').onclick=r);
+
+  if (failed){
+    showCalibIntro9();
+    startGazePreview(); ensurePreviewVisible();
+    await new Promise(r=>{
+      document.getElementById('calStart9').onclick = ()=>{ stopGazePreview(); r(); };
+    });
+    await warmupCameraAndPreview({title:'Camera setup', msg:'Preparing camera for calibration…', waitMs:10000});
+    await calibrateNinePointsMouse();
+
+    showValidationIntro9();
+    startGazePreview(); ensurePreviewVisible();
+    await new Promise(r=>{
+      document.getElementById('valStart9').onclick = ()=>{ stopGazePreview(); r(); };
+    });
+    await warmupCameraAndPreview({title:'Camera setup', msg:'Preparing camera for validation…', waitMs:10000});
+    const acc2 = await runNineValidation();
+    await showValidationOutcomeAndMaybeLoop9(acc2, attempt + 1);
+  }
+}
+
+async function calibrationFlow(){
+  // 9 点校准 + 验证（用于 Block 1 之前）
+  showCalibIntro9();
+  startGazePreview(); ensurePreviewVisible();
+  await new Promise(r=>{
+    document.getElementById('calStart9').onclick = ()=>{ stopGazePreview(); r(); };
+  });
+  await warmupCameraAndPreview({title:'Camera setup', msg:'Preparing camera for calibration…', waitMs:10000});
+  await calibrateNinePointsMouse();
+
+  showValidationIntro9();
+  startGazePreview(); ensurePreviewVisible();
+  await new Promise(r=>{
+    document.getElementById('valStart9').onclick = ()=>{ stopGazePreview(); r(); };
+  });
+  await warmupCameraAndPreview({title:'Camera setup', msg:'Preparing camera for validation…', waitMs:10000});
+  const acc = await runNineValidation();
+  await showValidationOutcomeAndMaybeLoop9(acc, 1);
+}
+
+/* ======= Between-block 5-point calibration → validation ======= */
+function showMidWhyIntro(contextLabel){
+  show(`
+    <h2>Break & Recalibration</h2>
+    <div class="note">
+      <p>
+        You have completed a group of decisions. Please take a short break now:
+        rest your eyes, relax your shoulders, and adjust your posture or lighting if needed.
+      </p>
+      <p>
+        When you feel ready to continue, press <b>Space</b>. A
+        <b>5-point calibration</b> followed by validation will start before the
+        next group to ensure tracking quality.
+      </p>
+    </div>
+    <p class="muted">Press Space when you are ready to continue.</p>
+  `);
+}
+
+async function calibrateFivePointsMouse(){
+  setStageBlank(true);
+  const seq = POINTS_5.slice();
+  await new Promise(resolve=>{
+    let idx=0, count=0, dot=null;
+    function place(){
+      const [px,py] = seq[idx];
+      const x=innerWidth*px/100, y=innerHeight*py/100;
+      dot=document.createElement('div'); dot.className='pt'; dot.style.left=x+'px'; dot.style.top=y+'px';
+      function clickOnce(){
+        count++;
+        try{
+          if (webgazer.recordScreenPosition) webgazer.recordScreenPosition(x,y,'click');
+          else if (webgazer.addCalibrationPoint) webgazer.addCalibrationPoint(x,y);
+        }catch(e){}
+        dot.style.boxShadow=`0 0 0 ${4+count*2}px rgba(229,57,53,.25)`;
+        if(count>=REPS){ dot.removeEventListener('click', clickOnce); dot.remove(); count=0; idx++; if(idx<seq.length) place(); else resolve(); }
+      }
+      dot.addEventListener('click', clickOnce);
+      document.body.appendChild(dot);
+    } place();
+  });
+  setStageBlank(false);
+}
+
+async function runFiveValidation(){
+  setStageBlank(true);
+  let acc=[];
+  for(const [px,py] of POINTS_5){
+    const x=innerWidth*px/100, y=innerHeight*py/100;
+    const dot=document.createElement('div'); dot.className='pt'; dot.style.left=x+'px'; dot.style.top=y+'px';
+    document.body.appendChild(dot);
+
+    let inR=0,total=0; const t0=performance.now();
+    while(performance.now()-t0 < MID_VAL_POINT_MS){
+      const p=await webgazer.getCurrentPrediction();
+      if(p){ total++; const dx=p.x-x, dy=p.y-y; if(dx*dx+dy*dy <= ROI*ROI) inR++; }
+      await sleep(16);
+    }
+    acc.push(total? Math.round(100*inR/total) : 0);
+    dot.remove(); await sleep(120);
+  }
+  setStageBlank(false);
+
+  const mean   = Math.round(acc.reduce((a,b)=>a+b,0)/acc.length);
+  const passAll = acc.every(p=>p >= MIN_OK);
+  const cells  = acc.map(p=>`<div class="cell ${p>=MIN_OK?'ok':'bad'}">${p}%</div>`);
+
+  show(`
+    <h2>Tracking Check</h2>
+    <p>Per-point hit rate (threshold per point: ${MIN_OK}%):</p>
+    <div class="grid" style="grid-template-columns:repeat(5,120px)">${cells.join('')}</div>
+    <p>Mean hit rate: <b>${mean}%</b> (for reference only; not the passing criterion)</p>
+    <p class="muted">${passAll ? 'Passed: press Space to continue.' : 'Not passed: press Space to recalibrate (5-point).'}</p>
+  `);
+  await awaitSpace();
+
+  return {acc, mean, passAll};
+}
+
+async function quickFivePointValidation(contextLabel='between-blocks'){
+  showMidWhyIntro(contextLabel);
+  await awaitSpace();
+
+  let attempts = 0;
+  let passed = false;
+
+  while (!passed && attempts < 3){
+    attempts++;
+
+    if (attempts === 1){
+      showCalibIntro5First();
+    } else {
+      showCalibIntro5Retry();
+    }
+
+    startGazePreview(); ensurePreviewVisible();
+    await new Promise(r=>{
+      const btnId = (attempts === 1) ? 'calStart5' : 'calRetry5';
+      document.getElementById(btnId).onclick = ()=>{ stopGazePreview(); r(); };
+    });
+    await warmupCameraAndPreview({title:'Camera setup', msg:'Preparing camera for calibration…', waitMs:10000});
+    await calibrateFivePointsMouse();
+
+    showValidationIntro5();
+    startGazePreview(); ensurePreviewVisible();
+    await new Promise(r=>{
+      document.getElementById('valStart5').onclick = ()=>{ stopGazePreview(); r(); };
+    });
+    await warmupCameraAndPreview({title:'Camera setup', msg:'Preparing camera for validation…', waitMs:10000});
+    const res = await runFiveValidation();
+
+    logs.push({
+      phase: 'validation5',
+      context: contextLabel,
+      attempt: attempts,
+      hit_rates: res.acc,
+      mean_pct: res.mean,
+      pass_all: res.passAll,
+      min_ok_pct: MIN_OK,
+      roi_px: ROI,
+      t: new Date().toISOString()
+    });
+
+    if (res.passAll){
+      passed = true;
+      break;
+    }
+  }
+
+  if (passed){
+    show(`<h2>Tracking Check Passed</h2><p class="muted">Press Space to continue.</p>`);
+    await awaitSpace();
+  } else {
+    show(`
+      <h2>Tracking not passed</h2>
+      <p class="muted">
+        You have not passed the 5-point calibration / validation after several attempts.
+        You may still continue to the task, but your eye-tracking data may be unusable
+        and could be discarded during analysis.
+      </p>
+      <p class="muted">Press Space to continue to the task.</p>
+    `);
+    LOW_QUALITY_EYETRACKING = true;
+    await awaitSpace();
+  }
+}
+
+/* — Key reminder — */
+async function showKeyReminder(){
+  show(`
+    <h2>Key Reminder</h2>
+    <div class="note" style="font-size:20px"><b>${KEYMAP.legend}</b></div>
+    <p class="muted">Press Space to continue.</p>
+  `);
+  await awaitSpace();
+}
+
+/* ===================== Trial presentation ===================== */
+function boxesHTML({gain, loss, gainLeft, colorGain, colorLoss, showLegend=false}){
+  const leftX  = `calc(50vw - ${offsetPx()}px)`, rightX = `calc(50vw + ${offsetPx()}px)`;
+  const g = `<div id="gainBox" class="box" style="left:${gainLeft?leftX:rightX}; color:${colorGain}">+$${gain}</div>`;
+  const l = `<div id="lossBox" class="box" style="left:${gainLeft?rightX:leftX}; color:${colorLoss}">-$${loss}</div>`;
+  return `<div class="arena"><div class="stage">${g}${l}</div></div>${keyLegendHTML(showLegend)}`;
+}
+
+/* ===================== Data & saving ===================== */
+async function saveToServer(payload){
+  const q = `?PROLIFIC_PID=${encodeURIComponent(getQS('PROLIFIC_PID'))}`
+          + `&STUDY_ID=${encodeURIComponent(getQS('STUDY_ID'))}`
+          + `&SESSION_ID=${encodeURIComponent(getQS('SESSION_ID'))}`;
+  try{
+    const r = await fetch('/save'+q, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    return r.ok;
+  }catch(e){
+    console.warn('save failed', e);
+    return false;
+  }
+}
+
+/* ===================== Single round ===================== */
+async function runTrial({group, gain, loss, includeInPayoff=true}){
+  const t_trial_start = includeInPayoff ? performance.now() : null;
+
+  await ensureFsIfExited();
+
+  // Fixation "+"
+  showCenter(`<div class="fix">+</div>`);
+  const t_fix_on = includeInPayoff ? performance.now() : null;
+
+  // fixation 期间采样（用于系统垂直偏差估计）
+  const fixationSamples = [];
+  let fixSampling = null;
+  if (WG_READY && includeInPayoff){
+    fixSampling = setInterval(async ()=>{
+      const p = await webgazer.getCurrentPrediction();
+      if (p){
+        const now = performance.now();
+        fixationSamples.push({
+          t: now,
+          t_rel: Math.round(now - t_fix_on),
+          x: p.x,
+          y: p.y
+        });
+      }
+    }, 16);
+  }
+
+  await sleep(randBetween(2000,4000));
+  if (fixSampling) clearInterval(fixSampling);
+
+  // Stimuli
+  const gainLeft = Math.random()<0.5;
+  const colorGain = PARTICIPANT_GAIN_BLUE ? BLUE : GREEN;
+  const colorLoss = PARTICIPANT_GAIN_BLUE ? GREEN : BLUE;
+
+  const trial_id = includeInPayoff ? (++trialCounter) : null;
+
+  showCenter(boxesHTML({gain, loss, gainLeft, colorGain, colorLoss, showLegend: !includeInPayoff}));
+  const gBox=document.getElementById('gainBox')?.getBoundingClientRect();
+  const lBox=document.getElementById('lossBox')?.getBoundingClientRect();
+  const t_stim_on = includeInPayoff ? performance.now() : null;
+
+  // Gaze sampling during decision period
+  const gaze=[]; let sampling=null;
+  if (WG_READY && includeInPayoff){
+    if (SHOW_GAZE_DOT_TASK) gazeDot.style.display='block'; else gazeDot.style.display='none';
+    sampling=setInterval(async ()=>{
+      const p=await webgazer.getCurrentPrediction();
+      if(p){
+        const now = performance.now();
+        gaze.push({t: now, t_rel: Math.round(now - t_stim_on), x:p.x, y:p.y});
+        if (SHOW_GAZE_DOT_TASK){ gazeDot.style.left=p.x+'px'; gazeDot.style.top=p.y+'px'; }
+      }
+    },16);
+  }
+
+  // Key response
+  const choice = await new Promise(resolve=>{
+    function onKey(e){
+      if(DECISION_KEYS.has(e.key)){
+        window.removeEventListener('keydown', onKey);
+        resolve(e.key.toLowerCase());
+      }
+    }
+    window.addEventListener('keydown', onKey);
+  });
+  const t_key = includeInPayoff ? performance.now() : null;
+  const rt = includeInPayoff ? (t_key - t_stim_on) : null;
+
+  if(sampling) clearInterval(sampling);
+  gazeDot.style.display='none';
+  const accepted=(choice===KEYMAP.accept);
+
+  if (includeInPayoff){
+    logs.push({
+      phase: 'decision',
+      trial_id, group, gain, loss,
+      gain_left:gainLeft, color_gain:colorGain, color_loss:colorLoss,
+      accepted, rt_ms:Math.round(rt),
+      t_trial_start, t_fix_on, t_stim_on, t_key,
+      gain_box_rect:gBox?{x:gBox.x,y:gBox.y,w:gBox.width,h:gBox.height}:null,
+      loss_box_rect:lBox?{x:lBox.x,y:lBox.y,w:lBox.width,h:lBox.height}:null,
+      fixation_samples: WG_READY ? fixationSamples : null,
+      webgazer_samples: WG_READY ? gaze : null,
+      mapping_gain_blue: PARTICIPANT_GAIN_BLUE,
+      mapping_accept_d: PARTICIPANT_ACCEPTS_WITH_D,
+      accept_key: KEYMAP.accept, reject_key: KEYMAP.reject,
+      prolific_pid: PROLIFIC_PID,
+      px_per_deg: PX_PER_DEG
+    });
+  }
+}
+
+/* ===================== Practice & main ===================== */
+async function runPractice(){
+  while (true){
+    show(`
+      <h2>Practice</h2>
+      <p>You will complete <b>${PRACTICE_N}</b> practice rounds (not used for compensation). Keys: <b>${KEYMAP.legend}</b>.</p>
+      <button class="btn" id="startPractice">Start practice</button>
+    `);
+    await new Promise(r=>document.getElementById('startPractice').onclick=r);
+
+    const z=checkZoomAndSize(); if(z) alert(z);
+    if(!isFullscreen()) await enterFullscreen();
+
+    const practiceSet = genUnique(PRACTICE_N);
+    const practiceOrder = shuffle(practiceSet.map(x=>({...x})));
+    for(const it of practiceOrder){
+      await runTrial({group:'P', gain:it.gain, loss:it.loss, includeInPayoff:false});
+    }
+
+    show(`
+      <h2>Practice finished</h2>
+      <p>If you want to practice again, click <b>Practice again</b>. If you are ready, click <b>Proceed to main session</b>.</p>
+      <button class="btn" id="redo">Practice again</button>
+      <button class="btn" id="toMain">Proceed to main session</button>
+    `);
+    const choice = await new Promise(resolve=>{
+      document.getElementById('redo').onclick = ()=>resolve('redo');
+      document.getElementById('toMain').onclick = ()=>resolve('continue');
+    });
+    if (choice === 'redo') continue;
+    if (choice === 'continue') break;
+  }
+}
+
+async function runBlock(index, list){
+  show(`<h2>Group ${index}</h2><p class="muted">Press Space to begin.</p>`);
+  await awaitSpace();
+
+  const z=checkZoomAndSize(); if(z) alert(z);
+  if(!isFullscreen()) await enterFullscreen();
+
+  for(let i=0;i<list.length;i++){
+    await ensureFsIfExited();
+    const it=list[i];
+    await runTrial({group:index, gain:it.gain, loss:it.loss, includeInPayoff:true});
+  }
+}
+
+/* ===================== Finish (no random payout; fixed fee) ===================== */
+async function askFinalFeedback(){
+  return await new Promise((resolve)=>{
+    show(`
+      <h2>Final comments</h2>
+      <p class="muted">
+        If you have any comments about this study (e.g., things you disliked,
+        parts that were confusing, or suggestions for improvement), please write them below.
+        This question is optional; you may leave it blank and continue.
+      </p>
+      <textarea id="feedback" style="width:100%;min-height:120px;"></textarea>
+      <div style="margin-top:10px;">
+        <button class="btn" id="submitFeedback">Submit and continue</button>
+      </div>
+    `);
+    document.getElementById('submitFeedback').onclick = ()=>{
+      const txt = (document.getElementById('feedback').value || '').trim();
+      logs.push({
+        phase: 'feedback',
+        comment: txt,
+        t: new Date().toISOString(),
+        prolific_pid: PROLIFIC_PID
+      });
+      resolve();
+    };
+  });
+}
+
+function buildPayload(aborted = false) {
+  const summary = {
+    prolific_pid: PROLIFIC_PID,
+    mapping_gain_blue: PARTICIPANT_GAIN_BLUE,
+    mapping_accept_d: PARTICIPANT_ACCEPTS_WITH_D,
+    accept_key: KEYMAP.accept,
+    reject_key: KEYMAP.reject,
+    px_per_deg: PX_PER_DEG,
+    sep_deg: SEP_DEG,
+    practice_n: PRACTICE_N,
+    group_n: blocks.map(b=>b.length),
+    compensation_fixed: true,
+    base_payment: START_ENDOWMENT,
+    decisions_hypothetical: true,
+    aborted,
+    low_quality_eyetracking: LOW_QUALITY_EYETRACKING || false,
+  };
+
+  const rounds = logs.slice();
+  const completed = rounds.filter(r => r && r.phase === 'decision').length;
+
+  return {
+    summary,
+    rounds,
+    completed_trials_client: completed,
+    aborted,
+  };
+}
+
+async function finishAndPayout(){
+  if (consent_record) {
+    logs.unshift({ phase: 'consent', ...consent_record });
+  }
+
+  const payload = buildPayload(false);
+  saveToServer(payload);
+
+  show(`
+    <h3>Session Complete</h3>
+    <p>Your decisions in this task were <b>hypothetical</b> and used for research only.</p>
+    <p>Your compensation is a <b>fixed $${START_ENDOWMENT}</b> participant fee.</p>
+    ${
+      PROLIFIC_RETURN_URL
+        ? `<button class="btn" id="backProlificBtn">Return to Prolific</button>`
+        : `<p class="muted">You may now close this window.</p>`
+    }
+  `);
+
+  const btn = document.getElementById('backProlificBtn');
+  if (btn && PROLIFIC_RETURN_URL){
+    btn.onclick = () => {
+      location.href = PROLIFIC_RETURN_URL;
+    };
+  }
+}
+
+/* ===================== Main ===================== */
+async function main(){
+  show(`<div class="wrap"><h2>System Notice / Loading</h2><p class="muted">If this page takes unusually long, refresh or check your network connection; make sure you have granted camera permissions.</p></div>`);
+  modal.open('Loading components', 'Fetching eye-tracking library…', 8);
+  modal.ramp(55, 3, 200);
+  try{
+    await ensureWebgazer();
+    modal.set(70, 'Eye-tracking library loaded.');
+    await sleep(200);
+    modal.close();
+  }catch(e){
+    modal.set(100, 'Failed to load eye-tracking library.');
+    await sleep(500);
+    modal.close();
+    const errBox=document.getElementById('err'); errBox.style.display='block';
+    errBox.textContent = 'Failed to load WebGazer:\n' + (e && (e.stack||e.message||e));
+    show('<div class="wrap"><h2>Unable to load eye-tracking library</h2><p>Details and possible fixes are shown in the bottom-left box.</p></div>');
+    return;
+  }
+
+  await showWelcome();
+
+  const consentResult = await showConsent();
+  if (consentResult === 'declined') {
+    try { if (window.webgazer) { await webgazer.stop(); } } catch(e) {}
+    return;
+  }
+
+  await runScreenScaleCalibration();
+  await showOverview();
+  await showComprehensionQuiz();
+  if (!isFullscreen()) await showFullscreenStep();
+
+  modal.open('Camera setup', 'Requesting camera access…', 10);
+  modal.ramp(85, 2.5, 250);
+  try { await initWebgazer(); modal.set(95, 'Camera ready'); await sleep(200); } catch(e){ modal.set(95, 'Camera initialization encountered an issue'); await sleep(400); }
+  modal.close();
+  CAMERA_WARMED = false;
+
+  await runPractice();
+
+  // Block 1 之前：9 点校准 & 验证，然后 Key Reminder
+  await calibrationFlow();
+  await showKeyReminder();
+  await runBlock(1, blocks[0]);
+
+  // Block 2 之前：5 点校准 & 验证 + Key Reminder
+  await quickFivePointValidation('before-block-2');
+  await showKeyReminder();
+  await runBlock(2, blocks[1]);
+
+  // Block 3 之前
+  await quickFivePointValidation('before-block-3');
+  await showKeyReminder();
+  await runBlock(3, blocks[2]);
+
+  // Block 4 之前
+  await quickFivePointValidation('before-block-4');
+  await showKeyReminder();
+  await runBlock(4, blocks[3]);
+
+  await askFinalFeedback();
+  await finishAndPayout();
+}
+
+document.addEventListener('DOMContentLoaded', main);
+</script>
+</body>
+</html>
